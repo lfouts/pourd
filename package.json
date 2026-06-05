@@ -1,12 +1,31 @@
 {
-  "name": "pourd-app",
+  "name": "pourd",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "^3.1.0",
+    "@supabase/supabase-js": "^2.106.2",
+    "babel-preset-expo": "^56.0.13",
     "expo": "~56.0.6",
+    "expo-constants": "~56.0.16",
+    "expo-font": "~56.0.5",
+    "expo-image-picker": "^56.0.14",
+    "expo-linking": "~56.0.12",
+    "expo-router": "~56.2.7",
+    "expo-secure-store": "~56.0.4",
+    "expo-splash-screen": "~56.0.10",
     "expo-status-bar": "~56.0.4",
+    "nativewind": "^4.2.4",
     "react": "19.2.3",
-    "react-native": "0.85.3"
+    "react-native": "0.85.3",
+    "react-native-gesture-handler": "^3.0.0",
+    "react-native-reanimated": "4.3.1",
+    "react-native-safe-area-context": "^5.8.0",
+    "react-native-screens": "^4.25.2",
+    "react-native-url-polyfill": "^3.0.0",
+    "react-native-worklets": "^0.8.3",
+    "tailwindcss": "^3.4.17"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
@@ -14,9 +33,10 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "sync:wines": "node scripts/sync-wines.mjs"
   },
   "private": true
 }
