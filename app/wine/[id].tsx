@@ -55,7 +55,7 @@ export default function WineDetail() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: w }, { data: cks }] = await Promise.all([
+      const [{ data: wine }, { data: ckeckins }] = await Promise.all([
         supabase.from('wines').select('*').eq('id', id).single(),
         supabase
           .from('checkins')
@@ -65,8 +65,8 @@ export default function WineDetail() {
           .order('created_at', { ascending: false })
           .limit(20),
       ]);
-      if (w) setWine(w as Wine);
-      if (cks) setCheckins(cks as unknown as CheckinWithDetails[]);
+      if (wine) setWine(wine as Wine);
+      if (checkins) setCheckins(checkins as unknown as CheckinWithDetails[]);
       setLoading(false);
     }
     load();

@@ -107,7 +107,7 @@ export default function Search() {
         <View className="bg-stone-800 rounded-xl px-4 py-3 flex-row">
           <TextInput
             style={s.input}
-            placeholder={tab === 'wines' ? 'Search wines, wineries…' : 'Search venues…'}
+            placeholder={tab === 'wines' ? 'Search wines, wineries…' : tab === 'people' ? 'Find friends…' : 'Search venues…'}
             placeholderTextColor="#78716c"
             value={query}
             onChangeText={handleSearch}

@@ -147,7 +147,7 @@ export default function SelectWine() {
         ListFooterComponent={
           query.length >= 2 ? (
             <View>
-              {gmLoading && <ActivityIndicator size="small" color="#78716c" className="py-3" />}
+              {gmLoading && !loading && <ActivityIndicator size="small" color="#78716c" className="py-3" />}
 
               {gmResults.map((gm) => (
                 <TouchableOpacity

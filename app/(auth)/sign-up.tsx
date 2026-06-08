@@ -28,7 +28,6 @@ export default function SignUp() {
       options: { data: { username } },
     });
     if (error) Alert.alert('Sign up failed', error.message);
-    else Alert.alert('Almost there!', 'Check your email to confirm your account.');
     setLoading(false);
   }
 

@@ -29,7 +29,7 @@ export default function UserProfile() {
         return;
       }
 
-      const [{ data: prof }, { data: cks }, { data: friendship }] = await Promise.all([
+      const [{ data: profile }, { data: checkins }, { data: friendship }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
         supabase
           .from('checkins')
@@ -45,8 +45,8 @@ export default function UserProfile() {
           .single(),
       ]);
 
-      if (prof) setProfile(prof as Profile);
-      if (cks) setCheckins(cks as unknown as CheckinWithDetails[]);
+      if (profile) setProfile(profile as Profile);
+      if (checkins) setCheckins(checkins as unknown as CheckinWithDetails[]);
 
       if (friendship) {
         const f = friendship as any;

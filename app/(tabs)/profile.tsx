@@ -23,7 +23,7 @@ export default function ProfileScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [{ data: prof }, { data: cks }] = await Promise.all([
+      const [{ data: profile }, { data: checkins }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         supabase
           .from('checkins')
@@ -33,8 +33,8 @@ export default function ProfileScreen() {
           .limit(20),
       ]);
 
-      if (prof) setProfile(prof as Profile);
-      if (cks) setCheckins(cks as unknown as CheckinWithDetails[]);
+      if (profile) setProfile(profile as Profile);
+      if (checkins) setCheckins(checkins as unknown as CheckinWithDetails[]);
       setLoading(false);
     }
     load();

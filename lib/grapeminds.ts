@@ -19,7 +19,7 @@ export interface GrapeMindsWine {
   color?: string | null;
   sub_type?: string | null;
   grape_varieties?: { name: string }[];
-  tasting_notes?: string | null;
+  tasting_notes?: string | string[] | null;
   description?: string | null;
   label_image_url?: string | null;
 }
@@ -98,7 +98,14 @@ export function mapToWineInsert(gm: GrapeMindsWine) {
   const region = gm.region?.name ? [gm.region.name] : null;
 
   const notes: string[] = [];
-  if (gm.tasting_notes) notes.push(...gm.tasting_notes.split(',').map((n) => n.trim()));
+  if (gm.tasting_notes) {
+    const raw = gm.tasting_notes;
+    if (Array.isArray(raw)) {
+      notes.push(...raw.map((n: any) => String(n).trim()));
+    } else if (typeof raw === 'string') {
+      notes.push(...raw.split(',').map((n) => n.trim()));
+    }
+  }
 
   return {
     name: gm.name,
