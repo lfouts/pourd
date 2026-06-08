@@ -13,12 +13,19 @@ export default function RootLayout() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const { error } = await supabase.from('profiles').select('id').eq('id', session.user.id).single();
+        const { error } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', session.user.id)
+          .single();
         if (error) {
-          await supabase.auth.signOut();
-          setSession(null);
-          setInitialized(true);
-          return;
+          const username = session.user.user_metadata?.username ?? session.user.email?.split('@')[0] ?? 'user';
+          await supabase.from('profiles').insert({
+            id: session.user.id,
+            username,
+            display_name: username,
+            total_checkins: 0,
+          } as any);
         }
       }
       setSession(session);
