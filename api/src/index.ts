@@ -49,6 +49,7 @@ app.route('/api/upload', uploadRoutes);
 app.get('/', (c) => c.json({ status: 'ok' }));
 
 const port = Number(process.env.PORT) || 3000;
+console.log('ENV CHECK — SECRET:', process.env.BETTER_AUTH_SECRET ? 'SET' : 'MISSING', '| URL:', process.env.BETTER_AUTH_URL ?? 'MISSING');
 serve({ fetch: app.fetch, port }, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
