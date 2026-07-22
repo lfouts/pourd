@@ -1,5 +1,10 @@
 import 'dotenv/config';
 import { serve } from '@hono/node-server';
+
+process.on('unhandledRejection', (reason) => {
+  console.error('CRASH:', reason);
+  process.exit(1);
+});
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
