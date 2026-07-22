@@ -73,9 +73,7 @@ export default function SelectWine() {
     await acquirePSLicense(gm.id);
     const insert = mapToWineInsert(detail);
 
-    const existing = await api.wines.search(`${insert.name} ${insert.winery}`)
-      .then((r) => r.find((w: any) => w.name === insert.name && w.winery === insert.winery))
-      .catch(() => null);
+    const existing = await api.wines.find(insert.name, insert.winery).catch(() => null);
 
     if (existing) {
       setLoading(false);

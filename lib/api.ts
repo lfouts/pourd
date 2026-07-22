@@ -2,6 +2,9 @@ import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: () => void) { onUnauthorized = fn; }
 const SESSION_KEY = 'auth_session';
 
 type StoredSession = { token: string; user: any };
@@ -31,6 +34,7 @@ async function request<T>(path: string, options: RequestInit = {}, skipAuth = fa
   });
   if (res.status === 401) {
     await clearStoredSession();
+    onUnauthorized?.();
     router.replace('/(auth)/sign-in');
     throw new Error('Unauthorized');
   }
@@ -109,6 +113,7 @@ export const api = {
   wines: {
     get: (id: string) => request<any>(`/api/wines/${id}`),
     search: (q: string) => request<any[]>(`/api/wines/search?q=${encodeURIComponent(q)}`),
+    find: (name: string, winery: string) => request<any | null>(`/api/wines/find?name=${encodeURIComponent(name)}&winery=${encodeURIComponent(winery)}`),
     create: (data: any) => request<any>('/api/wines', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: any) => request<any>(`/api/wines/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },

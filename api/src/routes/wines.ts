@@ -14,6 +14,14 @@ app.get('/search', async (c) => {
   return c.json(results);
 });
 
+app.get('/find', async (c) => {
+  const name = c.req.query('name') ?? '';
+  const winery = c.req.query('winery') ?? '';
+  const [wine] = await db.select().from(wines)
+    .where(sql`lower(${wines.name}) = lower(${name}) and lower(${wines.winery}) = lower(${winery})`);
+  return c.json(wine ?? null);
+});
+
 app.get('/:id', async (c) => {
   const [wine] = await db.select().from(wines).where(eq(wines.id, c.req.param('id')));
   if (!wine) return c.json({ error: 'Not found' }, 404);

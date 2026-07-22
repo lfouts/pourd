@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api } from './api';
+import { api, setUnauthorizedHandler } from './api';
 
 interface AuthContextType {
   userId: string | null | undefined;
@@ -15,6 +15,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
+    setUnauthorizedHandler(() => setUserId(null));
     api.auth.getCurrentUser().then((user) => {
       setUserId(user?.id ?? null);
     });
