@@ -6,7 +6,7 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { searchMeiliWines } from '@/lib/meilisearch';
 import { Wine } from '@/types/database';
 import { checkinStore } from '@/lib/checkin-store';
@@ -73,13 +73,9 @@ export default function SelectWine() {
     await acquirePSLicense(gm.id);
     const insert = mapToWineInsert(detail);
 
-    // Check if wine already exists before inserting
-    const { data: existing } = await supabase
-      .from('wines')
-      .select('*')
-      .eq('name', insert.name)
-      .eq('winery', insert.winery)
-      .maybeSingle();
+    const existing = await api.wines.search(`${insert.name} ${insert.winery}`)
+      .then((r) => r.find((w: any) => w.name === insert.name && w.winery === insert.winery))
+      .catch(() => null);
 
     if (existing) {
       setLoading(false);
@@ -87,17 +83,13 @@ export default function SelectWine() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('wines')
-      .insert({ ...insert } as any)
-      .select()
-      .single();
-    setLoading(false);
-    if (error || !data) {
-      Alert.alert('Error', error?.message ?? 'Could not save wine.');
-      return;
+    try {
+      const data = await api.wines.create(insert);
+      selectWine(data as Wine);
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Could not save wine.');
     }
-    selectWine(data as Wine);
+    setLoading(false);
   }
 
   return (
@@ -210,18 +202,16 @@ function AddWineModal({
   const [country, setCountry] = useState('');
   const [vintage, setVintage] = useState('');
   const [labelUri, setLabelUri] = useState<string | null>(null);
-  const [labelBase64, setLabelBase64] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function pickLabel() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo access to add a wine label.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], allowsEditing: true, aspect: [2, 3], quality: 0.7, base64: true,
+      mediaTypes: ['images'], allowsEditing: true, aspect: [2, 3], quality: 0.7,
     });
     if (!result.canceled && result.assets[0]) {
       setLabelUri(result.assets[0].uri);
-      setLabelBase64(result.assets[0].base64 ?? null);
     }
   }
 
@@ -246,22 +236,17 @@ function AddWineModal({
     setSaving(true);
 
     let labelImageUrl: string | null = null;
-    if (labelBase64 && labelUri) {
+    if (labelUri) {
       const ext = (labelUri.split('.').pop() ?? 'jpg').toLowerCase();
-      const path = `${Date.now()}.${ext}`;
-      const byteArray = Uint8Array.from(atob(labelBase64), (c) => c.charCodeAt(0));
-      const { error: uploadError } = await supabase.storage
-        .from('wine-labels')
-        .upload(path, byteArray, { contentType: `image/${ext}`, upsert: true });
-      if (!uploadError) {
-        labelImageUrl = supabase.storage.from('wine-labels').getPublicUrl(path).data.publicUrl;
-      }
+      try {
+        const { url } = await api.upload.wineLabel(labelUri, ext);
+        labelImageUrl = url;
+      } catch {}
     }
 
     const regionArr = regions.split(',').map((r) => r.trim()).filter(Boolean);
-    const { data, error } = await supabase
-      .from('wines')
-      .insert({
+    try {
+      const data = await api.wines.create({
         name,
         winery,
         varietals: selectedVarietals,
@@ -269,14 +254,13 @@ function AddWineModal({
         country: country || null,
         vintage: vintage ? parseInt(vintage) : null,
         label_image_url: labelImageUrl,
-      } as any)
-      .select()
-      .single();
-
+      });
+      onAdded(data as Wine);
+      onClose();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
     setSaving(false);
-    if (error) { Alert.alert('Error', error.message); return; }
-    onAdded(data as Wine);
-    onClose();
   }
 
   return (

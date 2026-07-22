@@ -3,8 +3,9 @@ import {
   View, Text, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator, StyleSheet, Image,
 } from 'react-native';
-import { Link } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { Link, useRouter } from 'expo-router';
+import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 
 const s = StyleSheet.create({
   input: { flex: 1, color: '#fff', fontSize: 16 },
@@ -14,12 +15,19 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { setUserId } = useAuth();
 
   async function handleSignIn() {
     if (!email || !password) return;
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) Alert.alert('Sign in failed', error.message);
+    try {
+      const data = await api.auth.signIn(email, password);
+      setUserId(data.user.id);
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      Alert.alert('Sign in failed', e.message);
+    }
     setLoading(false);
   }
 

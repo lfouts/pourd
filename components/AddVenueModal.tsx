@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, Modal, ActivityIndicator, Alert,
 } from 'react-native';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { Venue } from '@/types/database';
 
 const VENUE_TYPES: Venue['type'][] = ['restaurant', 'bar', 'winery', 'shop', 'home', 'other'];
@@ -33,15 +33,14 @@ export function AddVenueModal({
   async function handleSave() {
     if (!name) { Alert.alert('Missing', 'Venue name is required.'); return; }
     setSaving(true);
-    const { data, error } = await supabase
-      .from('venues')
-      .insert({ name, type, city: city || null, country: country || null } as any)
-      .select()
-      .single();
+    try {
+      const data = await api.venues.create({ name, type, city: city || null, country: country || null });
+      onAdded(data as Venue);
+      onClose();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
     setSaving(false);
-    if (error) { Alert.alert('Error', error.message); return; }
-    onAdded(data as Venue);
-    onClose();
   }
 
   return (

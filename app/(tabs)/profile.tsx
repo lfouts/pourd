@@ -6,10 +6,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { Profile, CheckinWithDetails } from '@/types/database';
 import { StarRating } from '@/components/StarRating';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useAuth } from '@/lib/auth-context';
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -17,20 +18,16 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const router = useRouter();
+  const { setUserId } = useAuth();
 
   useFocusEffect(useCallback(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await api.auth.getCurrentUser();
       if (!user) return;
 
-      const [{ data: profile }, { data: checkins }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase
-          .from('checkins')
-          .select('*, wine:wines(*), venue:venues(*), profile:profiles(*)')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(20),
+      const [profile, checkins] = await Promise.all([
+        api.profiles.get(user.id).catch(() => null),
+        api.checkins.list(user.id).catch(() => []),
       ]);
 
       if (profile) setProfile(profile as Profile);
@@ -52,61 +49,38 @@ export default function ProfileScreen() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
-      base64: true,
     });
 
     if (result.canceled || !result.assets[0]) return;
 
     setUploading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await api.auth.getCurrentUser();
     if (!user) { setUploading(false); return; }
 
     const asset = result.assets[0];
     const ext = (asset.uri.split('.').pop() ?? 'jpg').toLowerCase();
-    const path = `${user.id}/avatar.${ext}`;
-    const contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
 
-    const base64 = asset.base64;
-    if (!base64) {
-      Alert.alert('Error', 'Could not read image data.');
-      setUploading(false);
-      return;
+    try {
+      const { url } = await api.upload.avatar(asset.uri, ext);
+      await api.profiles.update(user.id, { avatar_url: url });
+      const fresh = await api.profiles.get(user.id);
+      if (fresh) setProfile(fresh as Profile);
+    } catch (e: any) {
+      Alert.alert('Upload failed', e.message);
     }
-
-    const byteArray = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(path, byteArray, { contentType, upsert: true });
-
-    if (uploadError) {
-      Alert.alert('Upload failed', uploadError.message);
-      setUploading(false);
-      return;
-    }
-
-    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-
-    const { error: updateError } = await (supabase.from('profiles') as any)
-      .update({ avatar_url: publicUrl })
-      .eq('id', user.id);
-
-    if (updateError) {
-      Alert.alert('Save failed', updateError.message);
-      setUploading(false);
-      return;
-    }
-
-    const { data: fresh } = await supabase
-      .from('profiles').select('*').eq('id', user.id).single();
-    if (fresh) setProfile(fresh as Profile);
     setUploading(false);
   }
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => supabase.auth.signOut() },
+      {
+        text: 'Sign out', style: 'destructive', onPress: async () => {
+          await api.auth.signOut();
+          setUserId(null);
+          router.replace('/(auth)/sign-in');
+        },
+      },
     ]);
   }
 

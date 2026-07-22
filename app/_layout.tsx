@@ -1,55 +1,19 @@
 import '../global.css';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { AuthProvider, useAuth } from '@/lib/auth-context';
 
-export default function RootLayout() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [initialized, setInitialized] = useState(false);
+function RootLayoutInner() {
+  const { userId } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        const { error } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', session.user.id)
-          .single();
-        if (error) {
-          const username = session.user.user_metadata?.username ?? session.user.email?.split('@')[0] ?? 'user';
-          await supabase.from('profiles').insert({
-            id: session.user.id,
-            username,
-            display_name: username,
-            total_checkins: 0,
-          } as any);
-        }
-      }
-      setSession(session);
-      setInitialized(true);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!initialized) return;
-
+    if (userId === undefined) return;
     const inAuthGroup = segments[0] === '(auth)';
-
-    if (!session && !inAuthGroup) {
-      router.replace('/(auth)/sign-in');
-    } else if (session && inAuthGroup) {
-      router.replace('/(tabs)');
-    }
-  }, [session, initialized, segments]);
+    if (!userId && !inAuthGroup) router.replace('/(auth)/sign-in');
+    else if (userId && inAuthGroup) router.replace('/(tabs)');
+  }, [userId, segments]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -59,5 +23,13 @@ export default function RootLayout() {
       <Stack.Screen name="wine/[id]" />
       <Stack.Screen name="user/[id]" />
     </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootLayoutInner />
+    </AuthProvider>
   );
 }

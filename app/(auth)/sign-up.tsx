@@ -3,8 +3,9 @@ import {
   View, Text, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator, ScrollView, StyleSheet, Image,
 } from 'react-native';
-import { Link } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { Link, useRouter } from 'expo-router';
+import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 
 const s = StyleSheet.create({
   input: { flex: 1, color: '#fff', fontSize: 16 },
@@ -15,19 +16,26 @@ export default function SignUp() {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { setUserId } = useAuth();
 
   async function handleSignUp() {
     if (!email || !password || !username) {
       Alert.alert('Missing fields', 'Please fill in all fields.');
       return;
     }
+    if (password.length < 8) {
+      Alert.alert('Password too short', 'Password must be at least 8 characters.');
+      return;
+    }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { username } },
-    });
-    if (error) Alert.alert('Sign up failed', error.message);
+    try {
+      const data = await api.auth.signUp(email, password, username);
+      setUserId(data.user.id);
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      Alert.alert('Sign up failed', e.message);
+    }
     setLoading(false);
   }
 
@@ -88,6 +96,9 @@ export default function SignUp() {
                 secureTextEntry
               />
             </View>
+            {password.length > 0 && password.length < 8 && (
+              <Text className="text-red-400 text-xs mt-1 ml-1">Password must be at least 8 characters</Text>
+            )}
           </View>
 
           <TouchableOpacity

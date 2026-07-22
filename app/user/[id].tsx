@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { Profile, CheckinWithDetails } from '@/types/database';
 import { StarRating } from '@/components/StarRating';
 
@@ -17,41 +17,32 @@ export default function UserProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [checkins, setCheckins] = useState<CheckinWithDetails[]>([]);
   const [friendStatus, setFriendStatus] = useState<FriendStatus>('none');
+  const [friendshipId, setFriendshipId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [friendLoading, setFriendLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await api.auth.getCurrentUser();
       if (!user || user.id === id) {
         router.replace('/(tabs)/profile');
         return;
       }
 
-      const [{ data: profile }, { data: checkins }, { data: friendship }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', id).single(),
-        supabase
-          .from('checkins')
-          .select('*, wine:wines(*), venue:venues(*), profile:profiles(*)')
-          .eq('user_id', id)
-          .eq('is_public', true)
-          .order('created_at', { ascending: false })
-          .limit(10),
-        supabase
-          .from('friendships')
-          .select('*')
-          .or(`and(user_id.eq.${user.id},friend_id.eq.${id}),and(user_id.eq.${id},friend_id.eq.${user.id})`)
-          .single(),
+      const [profile, checkins, friendship] = await Promise.all([
+        api.profiles.get(id).catch(() => null),
+        api.checkins.list(id).catch(() => []),
+        api.friendships.status(id).catch(() => null),
       ]);
 
       if (profile) setProfile(profile as Profile);
       if (checkins) setCheckins(checkins as unknown as CheckinWithDetails[]);
 
       if (friendship) {
-        const f = friendship as any;
-        if (f.status === 'accepted') setFriendStatus('accepted');
-        else if (f.user_id === user.id) setFriendStatus('pending_sent');
+        setFriendshipId(friendship.id);
+        if (friendship.status === 'accepted') setFriendStatus('accepted');
+        else if (friendship.user_id === user.id) setFriendStatus('pending_sent');
         else setFriendStatus('pending_received');
       }
 
@@ -61,26 +52,23 @@ export default function UserProfile() {
   }, [id]);
 
   async function handleFriendAction() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
     setFriendLoading(true);
 
     if (friendStatus === 'none') {
-      await (supabase.from('friendships') as any).insert({ user_id: user.id, friend_id: id });
+      const row = await api.friendships.send(id);
+      setFriendshipId(row.id);
       setFriendStatus('pending_sent');
-    } else if (friendStatus === 'pending_received') {
-      await (supabase.from('friendships') as any)
-        .update({ status: 'accepted' })
-        .eq('user_id', id).eq('friend_id', user.id);
+    } else if (friendStatus === 'pending_received' && friendshipId) {
+      await api.friendships.accept(friendshipId);
       setFriendStatus('accepted');
-    } else if (friendStatus === 'accepted') {
+    } else if (friendStatus === 'accepted' && friendshipId) {
       Alert.alert('Remove friend', 'Are you sure?', [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove', style: 'destructive', onPress: async () => {
-            await supabase.from('friendships').delete()
-              .or(`and(user_id.eq.${user.id},friend_id.eq.${id}),and(user_id.eq.${id},friend_id.eq.${user.id})`);
+            await api.friendships.remove(friendshipId);
             setFriendStatus('none');
+            setFriendshipId(null);
           },
         },
       ]);

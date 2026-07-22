@@ -3,12 +3,12 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshContr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 
 interface FriendRequest {
   id: string;
   user_id: string;
-  profile: { username: string; display_name: string | null; avatar_url: string | null };
+  user: { username: string; display_name: string | null; avatar_url: string | null };
   created_at: string;
 }
 
@@ -19,17 +19,8 @@ export default function Activity() {
   const router = useRouter();
 
   async function fetchRequests() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-
-    const { data } = await supabase
-      .from('friendships')
-      .select('id, user_id, created_at, profile:profiles!friendships_user_id_fkey(username, display_name, avatar_url)')
-      .eq('friend_id', user.id)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
-
-    setRequests((data as unknown as FriendRequest[]) ?? []);
+    const data = await api.friendships.requests().catch(() => []);
+    setRequests(data as FriendRequest[]);
     setLoading(false);
     setRefreshing(false);
   }
@@ -39,12 +30,12 @@ export default function Activity() {
   const onRefresh = useCallback(() => { setRefreshing(true); fetchRequests(); }, []);
 
   async function accept(id: string) {
-    await (supabase.from('friendships') as any).update({ status: 'accepted' }).eq('id', id);
+    await api.friendships.accept(id);
     setRequests((prev) => prev.filter((r) => r.id !== id));
   }
 
   async function decline(id: string) {
-    await supabase.from('friendships').delete().eq('id', id);
+    await api.friendships.remove(id);
     setRequests((prev) => prev.filter((r) => r.id !== id));
   }
 
@@ -79,13 +70,13 @@ export default function Activity() {
             <TouchableOpacity onPress={() => router.push(`/user/${item.user_id}`)}>
               <View className="w-10 h-10 rounded-full bg-wine-800 items-center justify-center">
                 <Text className="text-white font-bold">
-                  {item.profile.username?.[0]?.toUpperCase() ?? '?'}
+                  {item.user.username?.[0]?.toUpperCase() ?? '?'}
                 </Text>
               </View>
             </TouchableOpacity>
             <View className="flex-1">
               <Text className="text-white font-semibold text-sm">
-                {item.profile.display_name ?? item.profile.username}
+                {item.user.display_name ?? item.user.username}
               </Text>
               <Text className="text-stone-400 text-xs">wants to be friends</Text>
             </View>

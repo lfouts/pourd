@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { searchMeiliWines } from '@/lib/meilisearch';
 import {
   searchGrapeMinds, getGrapeMindsWineDetail,
@@ -57,13 +57,11 @@ export default function Search() {
       setGmWines(gm.filter((w) => w.name && !localNames.has(w.name.toLowerCase())));
       setGmLoading(false);
     } else if (tab === 'venues') {
-      const { data } = await supabase.from('venues').select('*')
-        .ilike('name', `%${text}%`).limit(20);
-      setVenues((data as Venue[]) ?? []);
+      const data = await api.venues.search(text).catch(() => []);
+      setVenues(data as Venue[]);
     } else {
-      const { data } = await supabase.from('profiles').select('*')
-        .or(`username.ilike.%${text}%,display_name.ilike.%${text}%`).limit(20);
-      setPeople((data as Profile[]) ?? []);
+      const data = await api.profiles.search(text).catch(() => []);
+      setPeople(data as Profile[]);
     }
     setLoading(false);
   }
@@ -74,12 +72,9 @@ export default function Search() {
     await acquirePSLicense(gm.id);
     const insert = mapToWineInsert(detail);
 
-    const { data: existing } = await supabase
-      .from('wines')
-      .select('*')
-      .eq('name', insert.name)
-      .eq('winery', insert.winery)
-      .maybeSingle();
+    const existing = await api.wines.search(`${insert.name} ${insert.winery}`)
+      .then((r) => r.find((w: any) => w.name === insert.name && w.winery === insert.winery))
+      .catch(() => null);
 
     if (existing) {
       setImporting(false);
@@ -87,17 +82,13 @@ export default function Search() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('wines')
-      .insert({ ...insert } as any)
-      .select()
-      .single();
-    setImporting(false);
-    if (error || !data) {
-      Alert.alert('Error', error?.message ?? 'Could not save wine.');
-      return;
+    try {
+      const data = await api.wines.create(insert);
+      router.push(`/wine/${data.id}`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Could not save wine.');
     }
-    router.push(`/wine/${(data as Wine).id}`);
+    setImporting(false);
   }
 
   return (
@@ -168,7 +159,7 @@ export default function Search() {
               </View>
               {item.avg_rating && (
                 <View className="items-end">
-                  <Text className="text-wine-400 font-bold">{item.avg_rating.toFixed(1)}</Text>
+                  <Text className="text-wine-400 font-bold">{Number(item.avg_rating).toFixed(1)}</Text>
                   <Text className="text-stone-600 text-xs">{item.total_checkins} pours</Text>
                 </View>
               )}
@@ -230,6 +221,7 @@ export default function Search() {
           }
         />
       )}
+
       {tab === 'people' && (
         <FlatList
           data={people}

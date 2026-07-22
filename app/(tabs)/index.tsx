@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { CheckinWithDetails } from '@/types/database';
 import { StarRating } from '@/components/StarRating';
 
@@ -18,33 +18,12 @@ export default function Feed() {
   const router = useRouter();
 
   async function fetchFeed() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await api.auth.getCurrentUser();
     if (!user) { setLoading(false); return; }
     setCurrentUserId(user.id);
 
-    const { data: friendships } = await supabase
-      .from('friendships')
-      .select('user_id, friend_id')
-      .eq('status', 'accepted')
-      .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
-
-    const friendIds = (friendships ?? []).map((f: any) =>
-      f.user_id === user.id ? f.friend_id : f.user_id
-    );
-    const allowedIds = [user.id, ...friendIds];
-
-    const { data, error } = await supabase
-      .from('checkins')
-      .select(`*, wine:wines(*), venue:venues(*), profile:profiles(*), clinks(user_id)`)
-      .in('user_id', allowedIds)
-      .order('created_at', { ascending: false })
-      .limit(30);
-
-    if (error) {
-      console.error('Feed fetch error:', error);
-    } else if (data) {
-      setCheckins(data as unknown as CheckinWithDetails[]);
-    }
+    const data = await api.checkins.feed().catch(() => []);
+    setCheckins(data as unknown as CheckinWithDetails[]);
     setLoading(false);
     setRefreshing(false);
   }
@@ -65,10 +44,9 @@ export default function Feed() {
     ));
 
     if (hasClinked) {
-      await supabase.from('clinks').delete()
-        .eq('checkin_id', checkinId).eq('user_id', currentUserId);
+      await api.clinks.remove(checkinId);
     } else {
-      await (supabase.from('clinks') as any).insert({ checkin_id: checkinId, user_id: currentUserId });
+      await api.clinks.add(checkinId);
     }
   }
 

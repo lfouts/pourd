@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { Wine, CheckinWithDetails } from '@/types/database';
 import { StarRating } from '@/components/StarRating';
 
@@ -27,46 +27,30 @@ export default function WineDetail() {
       allowsEditing: true,
       aspect: [2, 3],
       quality: 0.7,
-      base64: true,
     });
-    if (result.canceled || !result.assets[0]?.base64) return;
+    if (result.canceled || !result.assets[0]) return;
 
     setUploading(true);
     const asset = result.assets[0];
     const ext = (asset.uri.split('.').pop() ?? 'jpg').toLowerCase();
-    const path = `${wine!.id}.${ext}`;
-    const byteArray = Uint8Array.from(atob(asset.base64!), (c) => c.charCodeAt(0));
 
-    const { error: uploadError } = await supabase.storage
-      .from('wine-labels')
-      .upload(path, byteArray, { contentType: `image/${ext}`, upsert: true });
-
-    if (uploadError) {
-      Alert.alert('Upload failed', uploadError.message);
-      setUploading(false);
-      return;
+    try {
+      const { url } = await api.upload.wineLabel(asset.uri, ext, wine!.id);
+      await api.wines.update(wine!.id, { label_image_url: url });
+      setWine((w) => w ? { ...w, label_image_url: url } : w);
+    } catch (e: any) {
+      Alert.alert('Upload failed', e.message);
     }
-
-    const { data: { publicUrl } } = supabase.storage.from('wine-labels').getPublicUrl(path);
-    await (supabase as any).from('wines').update({ label_image_url: publicUrl }).eq('id', wine!.id);
-    setWine((w) => w ? { ...w, label_image_url: publicUrl } : w);
     setUploading(false);
   }
 
   useEffect(() => {
     async function load() {
-      const [{ data: wine }, { data: ckeckins }] = await Promise.all([
-        supabase.from('wines').select('*').eq('id', id).single(),
-        supabase
-          .from('checkins')
-          .select('*, wine:wines(*), venue:venues(*), profile:profiles(*)')
-          .eq('wine_id', id)
-          .eq('is_public', true)
-          .order('created_at', { ascending: false })
-          .limit(20),
-      ]);
-      if (wine) setWine(wine as Wine);
-      if (checkins) setCheckins(checkins as unknown as CheckinWithDetails[]);
+      const data = await api.wines.get(id).catch(() => null);
+      if (data) {
+        setWine(data as Wine);
+        setCheckins((data.checkins ?? []) as unknown as CheckinWithDetails[]);
+      }
       setLoading(false);
     }
     load();
@@ -147,8 +131,8 @@ export default function WineDetail() {
           <View className="flex-row items-center gap-3 mt-4">
             {wine.avg_rating !== null && (
               <>
-                <StarRating rating={wine.avg_rating} readonly size={20} />
-                <Text className="text-wine-400 font-bold text-lg">{wine.avg_rating.toFixed(1)}</Text>
+                <StarRating rating={Number(wine.avg_rating)} readonly size={20} />
+                <Text className="text-wine-400 font-bold text-lg">{Number(wine.avg_rating).toFixed(1)}</Text>
               </>
             )}
             <Text className="text-stone-500 text-sm">{wine.total_checkins} pours</Text>

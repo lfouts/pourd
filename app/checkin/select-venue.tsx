@@ -4,7 +4,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { Venue } from '@/types/database';
 import { checkinStore } from '@/lib/checkin-store';
 import { AddVenueModal } from '@/components/AddVenueModal';
@@ -18,7 +18,6 @@ const VENUE_LABELS: Record<Venue['type'], string> = {
   other: '📍 Other',
 };
 
-
 export default function SelectVenue() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Venue[]>([]);
@@ -30,12 +29,8 @@ export default function SelectVenue() {
     setQuery(text);
     if (text.length < 2) { setResults([]); return; }
     setLoading(true);
-    const { data } = await supabase
-      .from('venues')
-      .select('*')
-      .ilike('name', `%${text}%`)
-      .limit(15);
-    setResults((data as Venue[]) ?? []);
+    const data = await api.venues.search(text).catch(() => []);
+    setResults(data as Venue[]);
     setLoading(false);
   }
 
@@ -118,4 +113,3 @@ export default function SelectVenue() {
     </View>
   );
 }
-

@@ -4,7 +4,7 @@ import {
   ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { checkinStore } from '@/lib/checkin-store';
 import { StarRating } from '@/components/StarRating';
 
@@ -30,28 +30,27 @@ export default function Rate() {
       return;
     }
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
 
-    const { error } = await supabase.from('checkins').insert({
-      user_id: user.id,
-      wine_id: draft.wine!.id,
-      venue_id: draft.venue?.id ?? null,
-      rating,
-      description: description || null,
-      guessed_notes: draft.guessedNotes.length ? draft.guessedNotes : null,
-      actual_notes: draft.wine?.official_notes
-        ? draft.wine.official_notes.split(',').map((n) => n.trim())
-        : null,
-      serving_style: servingStyle,
-      is_public: isPublic,
-    } as any);
+    try {
+      await api.checkins.create({
+        wine_id: draft.wine!.id,
+        venue_id: draft.venue?.id ?? null,
+        rating,
+        description: description || null,
+        guessed_notes: draft.guessedNotes.length ? draft.guessedNotes : null,
+        actual_notes: draft.wine?.official_notes
+          ? draft.wine.official_notes.split(',').map((n) => n.trim())
+          : null,
+        serving_style: servingStyle,
+        is_public: isPublic,
+      });
 
+      checkinStore.reset();
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
     setSaving(false);
-    if (error) { Alert.alert('Error', error.message); return; }
-
-    checkinStore.reset();
-    router.replace('/(tabs)');
   }
 
   const officialNotes = draft.wine?.official_notes
