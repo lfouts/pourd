@@ -13,12 +13,16 @@ The wine search is where it gets interesting — it searches a local database fi
 - **React Native + Expo** — iOS and Android from one codebase
 - **Hono** — lightweight Node.js API server
 - **Better Auth** — authentication with bearer tokens
-- **Neon Postgres + Drizzle** — database and ORM
+- **Postgres + Drizzle** — database and ORM
 - **Cloudflare R2** — photo storage
 - **Meilisearch** — search that actually works (typo-tolerant, fast)
 - **GrapeMinds API** — external wine catalog (300,000+ wines)
 - **NativeWind** — Tailwind CSS for React Native
 - **TypeScript** throughout
+
+## Infrastructure
+
+The API runs on a self-hosted Debian server with PM2 + Caddy, accessible at `https://pourd.lorenlove.com`.
 
 ## Running locally
 
