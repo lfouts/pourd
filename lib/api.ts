@@ -9,6 +9,11 @@ const SESSION_KEY = 'auth_session';
 
 type StoredSession = { token: string; user: any };
 
+// Better Auth errors come back as { message, code }; our own routes use { error }
+function errorFrom(body: any, status: number) {
+  return new Error(body?.error ?? body?.message ?? `HTTP ${status}`);
+}
+
 async function getStoredSession(): Promise<StoredSession | null> {
   const raw = await SecureStore.getItemAsync(SESSION_KEY);
   return raw ? JSON.parse(raw) : null;
@@ -40,7 +45,7 @@ async function request<T>(path: string, options: RequestInit = {}, skipAuth = fa
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `HTTP ${res.status}`);
+    throw errorFrom(body, res.status);
   }
   if (res.status === 204) return {} as T;
   return res.json();
@@ -73,7 +78,7 @@ export const api = {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `HTTP ${res.status}`);
+        throw errorFrom(body, res.status);
       }
       const data = await res.json();
       const token = res.headers.get('set-auth-token') ?? data.token;
@@ -91,7 +96,7 @@ export const api = {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `HTTP ${res.status}`);
+        throw errorFrom(body, res.status);
       }
       const data = await res.json();
       const token = res.headers.get('set-auth-token') ?? data.token;
