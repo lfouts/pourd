@@ -6,6 +6,17 @@ import { requireAuth } from '../middleware/require-auth.js';
 
 const app = new Hono();
 
+// Paginated full listing — used by scripts/sync-wines.mjs to build the Meili index
+app.get('/', async (c) => {
+  const limit = Math.min(Number(c.req.query('limit')) || 1000, 1000);
+  const offset = Number(c.req.query('offset')) || 0;
+  const results = await db.select().from(wines)
+    .orderBy(wines.id)
+    .limit(limit)
+    .offset(offset);
+  return c.json(results);
+});
+
 app.get('/search', async (c) => {
   const q = c.req.query('q') ?? '';
   const results = await db.select().from(wines)

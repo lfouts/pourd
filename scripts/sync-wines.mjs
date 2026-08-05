@@ -12,29 +12,28 @@ const env = Object.fromEntries(
     })
 );
 
-const SUPABASE_URL = env['EXPO_PUBLIC_SUPABASE_URL'];
-const SUPABASE_KEY = env['EXPO_PUBLIC_SUPABASE_ANON_KEY'];
+const API_URL = env['EXPO_PUBLIC_API_URL'];
 const MEILI_HOST = env['EXPO_PUBLIC_MEILI_HOST'];
 const MEILI_ADMIN_KEY = env['MEILI_ADMIN_KEY'];
 
-if (!SUPABASE_URL || !SUPABASE_KEY || !MEILI_HOST || !MEILI_ADMIN_KEY) {
+if (!API_URL || !MEILI_HOST || !MEILI_ADMIN_KEY) {
   console.error('Missing required env vars. Check .env.local');
   process.exit(1);
 }
 
 async function fetchAllWines() {
   const wines = [];
-  let from = 0;
+  let offset = 0;
   const limit = 1000;
   while (true) {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/wines?select=*&limit=${limit}&offset=${from}`,
-      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
-    );
+    const res = await fetch(`${API_URL}/api/wines?limit=${limit}&offset=${offset}`);
+    if (!res.ok) {
+      throw new Error(`GET /api/wines failed: ${res.status} ${await res.text()}`);
+    }
     const data = await res.json();
     wines.push(...data);
     if (data.length < limit) break;
-    from += limit;
+    offset += limit;
   }
   return wines;
 }
@@ -52,7 +51,7 @@ async function meili(method, path, body) {
 }
 
 const wines = await fetchAllWines();
-console.log(`Fetched ${wines.length} wines from Supabase`);
+console.log(`Fetched ${wines.length} wines from the API`);
 
 // Configure searchable attributes
 await meili('PUT', '/indexes/wines/settings/searchable-attributes', [
